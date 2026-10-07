@@ -24,6 +24,7 @@ jobs:
         env:
           KEYBOARD_TEST_CHROMIUM: /usr/bin/google-chrome
       - run: docker build -f dockerfile.keyboard -t keyboard-check .
+      - run: docker run --rm --init --mount "type=bind,source=$PWD/tests/startup.browser.mjs,target=/app/startup.browser.mjs,readonly" keyboard-check node /app/startup.browser.mjs
 
   publish:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'

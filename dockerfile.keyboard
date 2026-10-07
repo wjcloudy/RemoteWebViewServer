@@ -2,7 +2,7 @@
 # No upstream packages or browser runtime are replaced by this variant.
 FROM docker.io/strangev/remote-webview-server@sha256:d9834ac4add11fa23af4542bd0ad2f7c7ff3eb9842354361222911b046d546eb
 WORKDIR /app
-COPY dist/builtinKeyboard.js dist/deviceManager.js ./dist/
+COPY dist/builtinKeyboard.js dist/deviceManager.js dist/deviceConnection.js dist/index.js ./dist/
 COPY keyboard ./keyboard
 COPY LICENSE ./LICENSE
 LABEL org.opencontainers.image.source="https://github.com/homestead-lab/RemoteWebViewServer" \
