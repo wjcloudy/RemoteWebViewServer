@@ -10,6 +10,9 @@ FROM deps AS build
 COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
+COPY keyboard ./keyboard
+COPY tests ./tests
+RUN npm run test:run && npm run test:keyboard
 
 FROM build AS prod-deps
 RUN npm prune --omit=dev
@@ -22,5 +25,7 @@ ENV NODE_ENV=production \
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY self-test ./self-test
+COPY keyboard ./keyboard
+COPY LICENSE ./LICENSE
 EXPOSE 8080 8081 9221
 CMD ["node", "dist/index.js"]

@@ -2,6 +2,10 @@
 
 # Remote WebView Server
 
+**Homestead fork:** this version adds a bundled touch keyboard for streamed
+displays. See [FORK.md](FORK.md) for the changes, controls, build instructions
+and licence notices. Upstream remains [strange-v/RemoteWebViewServer](https://github.com/strange-v/RemoteWebViewServer).
+
 Headless browser that renders target web pages (e.g., Home Assistant dashboards) and streams them as image tiles over WebSocket to lightweight [clients](https://github.com/strange-v/RemoteWebViewClient) (ESP32 displays). The server supports multiple simultaneous clients, each with its own screen resolution, orientation, and per-device settings.
 
 ![Remote WebView](/images/tiled_preview.png)
@@ -24,7 +28,11 @@ Headless browser that renders target web pages (e.g., Home Assistant dashboards)
 
 ## On-screen keyboard
 
-The server does not include a built-in on-screen keyboard, but you can inject any external JavaScript file into every page it renders — including a virtual keyboard of your choice.
+This fork includes a built-in on-screen keyboard, enabled by default. Tap a
+text field, then tap the keyboard button in the lower-right corner. Set
+`BUILTIN_KEYBOARD=false` to disable it. No additional container or display
+firmware is required. You can also inject external JavaScript into rendered
+pages using upstream's existing hook:
 
 - `INJECT_JS_URL` (empty by default): direct HTTPS URL to a JavaScript file. If set, the script is fetched once on startup and injected into every new page via `Page.addScriptToEvaluateOnNewDocument`.
 - `INJECT_JS_ALLOW_HTTP` (`false` by default): allow plain HTTP URLs (HTTPS is strongly recommended).
