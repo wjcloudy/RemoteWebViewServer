@@ -1,0 +1,46 @@
+name: Keyboard image
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run test:run
+      - run: npm run build
+      - run: git diff --exit-code -- dist
+      - run: npm run test:keyboard
+        env:
+          KEYBOARD_TEST_CHROMIUM: /usr/bin/google-chrome
+      - run: docker build -f dockerfile.keyboard -t keyboard-check .
+
+  publish:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and publish tested image
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/homestead-lab/remote-webview-server:keyboard-${GITHUB_SHA:0:12}"
+          docker build -f dockerfile.keyboard --label "org.opencontainers.image.revision=$GITHUB_SHA" -t "$image" .
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push "$image"
+          printf 'Published `%s`\n' "$image" >> "$GITHUB_STEP_SUMMARY"

@@ -6,6 +6,7 @@ import { DeviceBroadcaster } from "./broadcaster.js";
 import { hash32 } from "./util.js";
 import { SelfTestRunner } from "./selfTest.js";
 import { getInjectScriptFromUrl } from "./scriptLoader.js";
+import { getBuiltinKeyboard } from "./builtinKeyboard.js";
 const PREFERS_REDUCED_MOTION = /^(1|true|yes|on)$/i.test(process.env.PREFERS_REDUCED_MOTION ?? '');
 const devices = new Map();
 let _cleanupRunning = false;
@@ -49,7 +50,12 @@ export async function ensureDeviceAsync(id, cfg) {
             features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
         });
     }
-    const keyboardScript = await getInjectScriptFromUrl(readInjectScriptConfig());
+    const builtinKeyboard = await getBuiltinKeyboard();
+    if (builtinKeyboard) {
+        await session.send('Page.addScriptToEvaluateOnNewDocument', { source: builtinKeyboard });
+    }
+    const injectConfig = readInjectScriptConfig();
+    const keyboardScript = injectConfig.url ? await getInjectScriptFromUrl(injectConfig) : undefined;
     if (keyboardScript) {
         await session.send('Page.addScriptToEvaluateOnNewDocument', { source: keyboardScript });
     }
