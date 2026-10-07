@@ -1,38 +1,49 @@
 /* Remote WebView touch keyboard. Original work, MIT licensed.
  * All input stays in the current page; no storage, logging or network calls.
  */
-(() => {
+((config) => {
   'use strict';
   if (window.top !== window || document.getElementById('rwv-touch-keyboard')) return;
   function start() {
     if (document.getElementById('rwv-touch-keyboard')) return;
     const host = document.createElement('div');
     host.id = 'rwv-touch-keyboard';
+    host.dataset.position = config.position;
+    const colorScheme = matchMedia('(prefers-color-scheme: dark)');
+    function updateTheme() {host.dataset.theme = config.theme === 'auto' ? (colorScheme.matches ? 'dark' : 'light') : config.theme;}
+    updateTheme(); if (config.theme === 'auto') colorScheme.addEventListener('change', updateTheme);
     host.style.cssText = 'position:fixed;inset:0;z-index:2147483647;pointer-events:none';
     const root = host.attachShadow({mode: 'open'});
     const style = document.createElement('style');
     style.textContent = `
-      :host{font-family:Arial,sans-serif;color:#f8fafc;font-size:14px}
+      :host{font-family:Arial,sans-serif;color:var(--text);font-size:14px;
+        --text:#f8fafc;--muted:#b8c4d7;--border:#526783;--panel:#101827;
+        --key:#293449;--special:#37465d;--active:#526783;--accent:#155e75}
+      :host([data-theme="light"]){--text:#111827;--muted:#475569;--border:#94a3b8;
+        --panel:#f8fafc;--key:#e2e8f0;--special:#cbd5e1;--active:#94a3b8;--accent:#0e7490}
       *{box-sizing:border-box}button{font:inherit;touch-action:manipulation;cursor:pointer;
-        color:inherit;border:1px solid #45516a;border-radius:7px;background:#293449;
+        color:inherit;border:1px solid var(--border);border-radius:7px;background:var(--key);
         min-width:0;padding:0;user-select:none;-webkit-user-select:none}
-      button:active{background:#526783}button:focus-visible{outline:2px solid #7dd3fc}
+      button:active{background:var(--active)}button:focus-visible{outline:2px solid #7dd3fc}
       .toggle{position:absolute;right:8px;bottom:8px;width:44px;height:44px;
-        background:#155e75;box-shadow:0 2px 8px #0008;pointer-events:auto}
+        background:var(--accent);color:white;box-shadow:0 2px 8px #0008;pointer-events:auto}
       .toggle svg{width:26px;height:26px;vertical-align:middle}
-      .panel{position:absolute;left:4px;right:4px;bottom:4px;padding:8px;
-        border:1px solid #526783;border-radius:12px;background:#101827;
+      :host([data-position="bottom-left"]) .toggle{left:8px;right:auto}
+      .panel{position:absolute;right:4px;width:calc(100% - 8px);max-width:720px;
+        max-height:calc(100dvh - 8px);overflow-y:auto;bottom:4px;padding:8px;
+        border:1px solid var(--border);border-radius:12px;background:var(--panel);
         box-shadow:0 4px 18px #0009;pointer-events:auto}
+      :host([data-position="bottom-left"]) .panel{left:4px;right:auto}
       .panel.above{top:4px;bottom:auto}
       [hidden]{display:none!important}.header{display:flex;align-items:center;
         height:30px;gap:8px;margin-bottom:6px}.label{flex:1;overflow:hidden;
         text-overflow:ellipsis;white-space:nowrap;font-weight:600}
-      .close{width:44px;height:30px;background:#1e293b}
-      .row{display:flex;gap:4px;margin-top:5px}.key{flex:1;height:42px;font-size:19px}
-      .wide{flex:1.6;font-size:15px;background:#37465d}.space{flex:4;font-size:15px}
-      .enter{flex:1.8;font-size:15px;background:#155e75}.shift.on{background:#0e7490}
-      .hint{font-size:13px;color:#b8c4d7;margin:0 0 6px;line-height:18px}
-      @media(max-width:360px){.key{font-size:16px;height:39px}.wide,.space,.enter{font-size:13px}}
+      .close{width:44px;height:30px;background:var(--special)}
+      .row{display:flex;gap:4px;margin-top:5px}.key{flex:1;height:clamp(28px,calc((100dvh - 76px)/4),42px);font-size:19px}
+      .wide{flex:1.6;font-size:15px;background:var(--special)}.space{flex:4;font-size:15px}
+      .enter{flex:1.8;font-size:15px;background:var(--accent);color:white}.shift.on{background:#0e7490;color:white}
+      .hint{font-size:13px;color:var(--muted);margin:0 0 6px;line-height:18px}
+      @media(max-width:360px){.key{font-size:16px;height:clamp(28px,calc((100dvh - 76px)/4),39px)}.wide,.space,.enter{font-size:13px}}
     `;
     root.append(style);
     function button(label, action, cls = '') {
@@ -60,7 +71,8 @@
     for (const [k,v] of Object.entries({x:7,y:13,width:12,height:2,rx:1,fill:'currentColor'})) space.setAttribute(k,v);
     svg.append(space); toggle.append(svg);
     const panel = document.createElement('section'); panel.className = 'panel'; panel.hidden = true;
-    panel.setAttribute('aria-label', 'Touch keyboard');
+    panel.id = 'keyboard-panel'; panel.setAttribute('aria-label', 'Touch keyboard');
+    toggle.setAttribute('aria-controls', panel.id); toggle.setAttribute('aria-expanded', 'false');
     const header = document.createElement('div'); header.className = 'header';
     const label = document.createElement('div'); label.className = 'label';
     header.append(label, button('Close', () => setOpen(false), 'close'));
@@ -69,7 +81,7 @@
     panel.append(header, hint, keys); root.append(toggle, panel); document.documentElement.append(host);
     let target = null, open = false, shifted = false, symbols = false, moreSymbols = false;
     const editable = el => el && !el.disabled && !el.readOnly && (
-      el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement &&
+      el.isContentEditable || el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement &&
       ['text','password','email','search','url','tel','number'].includes(el.type));
     function active() {
       let el = document.activeElement;
@@ -87,7 +99,8 @@
     }
     document.addEventListener('focusin', e => {
       const input = e.composedPath().find(editable) || active();
-      if (editable(input)) { target = input; updateLabel(); }
+      if (editable(input)) { target = input; updateLabel(); if (config.autoOpen) setOpen(true); }
+      else if (!e.composedPath().includes(host)) {target = null; updateLabel();}
     }, true);
     document.addEventListener('pointerdown', e => {
       if (e.composedPath().includes(host)) return;
@@ -97,56 +110,32 @@
     function setOpen(value) {
       if (editable(active())) target = active();
       open = value; panel.hidden = !value; toggle.hidden = value;
+      toggle.setAttribute('aria-expanded', String(value));
       if (!value) { shifted = false; symbols = false; moreSymbols = false; render(); }
       updateLabel();
     }
-    function input(text, erase = false) {
-      if (!editable(target) || !target.isConnected) { target = null; updateLabel(); return; }
-      const el = target; el.focus({preventScroll:true});
-      let begin = el.selectionStart ?? el.value.length, end = el.selectionEnd ?? begin;
-      if (erase && begin === end && begin > 0) {
-        // Remove one complete code point rather than leaving a broken surrogate.
-        begin -= Array.from(el.value.slice(0,begin)).at(-1).length;
+    // The binding is installed by the server for this page's CDP session.
+    // Chromium handles editing, selection, validation and native form actions.
+    // No input values are read or retained by the keyboard.
+    function send(message) {
+      if (typeof window.__rwvTouchKeyboardInput === 'function') {
+        window.__rwvTouchKeyboardInput(JSON.stringify(message));
       }
-      const type = erase ? 'deleteContentBackward' : 'insertText';
-      if (!el.dispatchEvent(new InputEvent('beforeinput', {bubbles:true,composed:true,cancelable:true,inputType:type,data:erase?null:text}))) return;
-      const value = el.value.slice(0,begin) + text + el.value.slice(end);
-      if (el.maxLength >= 0 && value.length > el.maxLength) return;
-      const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-      Object.getOwnPropertyDescriptor(proto,'value').set.call(el,value);
-      try { el.setSelectionRange(begin + text.length, begin + text.length); } catch {}
-      el.dispatchEvent(new InputEvent('input', {bubbles:true,composed:true,inputType:type,data:erase?null:text}));
-      if (shifted && !erase) { shifted = false; render(); }
     }
-    function deepFields(node, out = []) {
-      for (const el of node.children || []) {
-        if (editable(el) && el.getClientRects().length && el.tabIndex >= 0) out.push(el);
-        if (el.shadowRoot && el !== host) deepFields(el.shadowRoot,out);
-        deepFields(el,out);
-      }
-      return out;
+    function input(text) {
+      send({type:'text',text});
+      if (shifted) {shifted=false;render();}
     }
-    function next() {
-      const fields = deepFields(document.documentElement);
-      if (!fields.length) return;
-      const index = fields.indexOf(target);
-      target = fields[(index+1) % fields.length]; target.focus({preventScroll:true}); updateLabel();
-    }
-    function enter() {
-      if (!editable(target) || !target.isConnected) return;
-      const el = target; el.focus({preventScroll:true});
-      const options = {key:'Enter',code:'Enter',keyCode:13,which:13,bubbles:true,composed:true,cancelable:true};
-      const allowed = el.dispatchEvent(new KeyboardEvent('keydown',options));
-      const pressed = el.dispatchEvent(new KeyboardEvent('keypress',options));
-      el.dispatchEvent(new KeyboardEvent('keyup',options));
-      if (!allowed || !pressed) return;
-      if (el instanceof HTMLTextAreaElement) input('\n');
-      else if (el.form?.requestSubmit) el.form.requestSubmit();
-    }
+    function key(name) {send({type:'key',key:name});}
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && open) {setOpen(false);e.preventDefault();}
+    }, true);
+    window.addEventListener('resize', updateLabel);
     function render() {
       keys.replaceChildren();
-      const rows = symbols ? (moreSymbols ? ['[]{}<>%+=~','^|`:$€£@#','-_/\\:;!?'] :
-        ['1234567890','@#$%&*()+','-_/\\:;!?']) : ['qwertyuiop','asdfghjkl','zxcvbnm'];
+      const rows = symbols ? (moreSymbols ? ['[]{}<>%+=~','^|`:$€£@#',config.layout === 'azerty' ? 'éèàçù!?;' : '-_/\\:;!?ß'] :
+        ['1234567890','@#$%&*()+','-_/\\:;!?']) : config.layout === 'qwertz' ? ['qwertzuiopü','asdfghjklöä','yxcvbnm'] :
+        config.layout === 'azerty' ? ['azertyuiop','qsdfghjklm','wxcvbn'] : ['qwertyuiop','asdfghjkl','zxcvbnm'];
       rows.forEach((letters,index) => {
         const row = document.createElement('div'); row.className = 'row';
         if (index === 2) row.append(button(symbols ? (moreSymbols ? '123' : '#+=') : 'Shift', () => {
@@ -156,19 +145,19 @@
           const text = shifted && !symbols ? char.toUpperCase() : char;
           row.append(button(text, () => input(text), 'key'));
         }
-        if (index === 2) row.append(button('⌫', () => input('',true), 'key wide'));
+        if (index === 2) row.append(button('⌫', () => key('Backspace'), 'key wide'));
         keys.append(row);
       });
       const row = document.createElement('div'); row.className = 'row';
       row.append(button(symbols ? 'ABC' : '123', () => {symbols=!symbols;moreSymbols=false;shifted=false;render();}, 'key wide'),
-        button('Tab',next,'key wide'), button('Space',()=>input(' '),'key space'),
+        button('Tab',()=>key('Tab'),'key wide'), button('Space',()=>input(' '),'key space'),
         button(symbols ? '"' : '.',()=>input(symbols ? '"' : '.'),'key'),
         button(symbols ? "'" : ',',()=>input(symbols ? "'" : ','),'key'),
-        button('Enter',enter,'key enter'));
+        button('Enter',()=>key('Enter'),'key enter'));
       keys.append(row);
     }
     render(); updateLabel();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',start,{once:true});
   else start();
-})();
+})

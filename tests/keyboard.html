@@ -16,4 +16,4 @@ customElements.define('demo-field',class extends HTMLElement{
 customElements.define('demo-login',class extends HTMLElement{
  connectedCallback(){const r=this.attachShadow({mode:'open'});for(const [label,type] of [['Username','text'],['Password','password']]){const f=document.createElement('demo-field');f.setAttribute('label',label);f.setAttribute('type',type);r.append(f)}const b=document.createElement('button');b.textContent='Log in';b.style.cssText='margin-top:22px;width:100%;height:44px;border:0;background:#03a9f4;color:white;border-radius:4px;font:16px Arial';r.append(b)}
 });
-</script><script src="../keyboard/keyboard.js"></script></html>
+</script></html>
