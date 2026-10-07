@@ -3,6 +3,12 @@ name: Keyboard image
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      existing_image:
+        description: 'Optional tested keyboard-<commit> tag to promote without rebuilding'
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -33,15 +39,28 @@ jobs:
     permissions:
       contents: read
       packages: write
+    concurrency:
+      group: keyboard-test-image
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - name: Build and publish tested image
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXISTING_IMAGE: ${{ inputs.existing_image }}
         run: |
           set -euo pipefail
-          image="ghcr.io/homestead-lab/remote-webview-server:keyboard-${GITHUB_SHA:0:12}"
-          docker build -f dockerfile.keyboard --label "org.opencontainers.image.revision=$GITHUB_SHA" -t "$image" .
+          repository="ghcr.io/homestead-lab/remote-webview-server"
           printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          docker push "$image"
-          printf 'Published `%s`\n' "$image" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$EXISTING_IMAGE" ]; then
+            [[ "$EXISTING_IMAGE" =~ ^keyboard-[0-9a-f]{12}$ ]] || { printf 'Invalid tested image tag\n' >&2; exit 1; }
+            image="$repository:$EXISTING_IMAGE"
+          else
+            image="$repository:keyboard-${GITHUB_SHA:0:12}"
+            docker build -f dockerfile.keyboard --label "org.opencontainers.image.revision=$GITHUB_SHA" -t "$image" .
+            docker push "$image"
+          fi
+          # Copy the existing manifest, retaining its exact digest. This channel
+          # is for keyboard testing; upstream latest/beta are independent.
+          docker buildx imagetools create --prefer-index=false --tag "$repository:keyboard-test" "$image"
+          printf 'Published `%s` on `%s:keyboard-test`\n' "$image" "$repository" >> "$GITHUB_STEP_SUMMARY"
