@@ -40,3 +40,27 @@ The generalized implementation is maintained separately on
 `codex/upstream-touch-keyboard`, based directly on current upstream main. That
 branch excludes fork-specific image publishing and the separate startup fix.
 It has not been submitted upstream pending physical-display tests.
+
+## Fork image updates
+
+The fork publishes an immutable `keyboard-<commit>` image and a rolling
+`keyboard-test` tag in `ghcr.io/homestead-lab/remote-webview-server`. The latter
+follows tested keyboard builds; it is not an upstream stable release channel.
+Upstream's `strangev/remote-webview-server:latest` and `:beta` remain independent.
+
+For a deployment pinned to a digest, Homestead needs the source tag recorded in
+its deployment metadata to check for future updates. Preserve the digest and
+record `ghcr.io/homestead-lab/remote-webview-server:keyboard-test` in
+`homestead.io/update-sources`, keyed by the actual container name. For example:
+
+```yaml
+metadata:
+  annotations:
+    homestead.io/update-sources: '{"rwvserver":"ghcr.io/homestead-lab/remote-webview-server:keyboard-test"}'
+```
+
+A numbered upstream tag can be compared with newer numbered releases. An
+immutable commit tag alone cannot identify the next keyboard build; use the
+rolling test tag for discovery and the digest for the running image.
+The publish workflow can promote an existing `keyboard-<commit>` tag without
+rebuilding it, retaining the exact tested manifest digest.
