@@ -6,6 +6,7 @@ import { FrameProcessor } from "./frameProcessor.js";
 import { DeviceBroadcaster } from "./broadcaster.js";
 import { hash32 } from "./util.js";
 import { SelfTestRunner } from "./selfTest.js";
+import { installTouchKeyboard } from "./touchKeyboard.js";
 import { getInjectScriptFromUrl } from "./scriptLoader.js";
 
 export type DeviceSession = {
@@ -74,6 +75,7 @@ export async function ensureDeviceAsync(id: string, cfg: DeviceConfig): Promise<
     });
   }
 
+  await installTouchKeyboard(session, cfg.keyboard);
   const keyboardScript = await getInjectScriptFromUrl(readInjectScriptConfig());
   if (keyboardScript) {
     await session.send('Page.addScriptToEvaluateOnNewDocument', { source: keyboardScript });

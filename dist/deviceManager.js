@@ -5,6 +5,7 @@ import { FrameProcessor } from "./frameProcessor.js";
 import { DeviceBroadcaster } from "./broadcaster.js";
 import { hash32 } from "./util.js";
 import { SelfTestRunner } from "./selfTest.js";
+import { installTouchKeyboard } from "./touchKeyboard.js";
 import { getInjectScriptFromUrl } from "./scriptLoader.js";
 const PREFERS_REDUCED_MOTION = /^(1|true|yes|on)$/i.test(process.env.PREFERS_REDUCED_MOTION ?? '');
 const devices = new Map();
@@ -49,6 +50,7 @@ export async function ensureDeviceAsync(id, cfg) {
             features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
         });
     }
+    await installTouchKeyboard(session, cfg.keyboard);
     const keyboardScript = await getInjectScriptFromUrl(readInjectScriptConfig());
     if (keyboardScript) {
         await session.send('Page.addScriptToEvaluateOnNewDocument', { source: keyboardScript });

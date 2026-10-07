@@ -1,0 +1,25 @@
+name: Touch keyboard checks
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  keyboard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - run: git diff --exit-code -- dist
+      - run: npm run test:run
+      - run: npm run test:keyboard
+        env:
+          KEYBOARD_TEST_CHROMIUM: /usr/bin/google-chrome

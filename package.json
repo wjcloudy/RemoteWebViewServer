@@ -8,6 +8,7 @@
     "start": "node dist/index.js",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:keyboard": "node tests/keyboard.browser.mjs",
     "test:watch": "vitest --watch",
     "coverage": "vitest run --coverage"
   },

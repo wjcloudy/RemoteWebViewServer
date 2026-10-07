@@ -22,5 +22,7 @@ ENV NODE_ENV=production \
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY self-test ./self-test
+COPY keyboard ./keyboard
+COPY LICENSE ./LICENSE
 EXPOSE 8080 8081 9221
 CMD ["node", "dist/index.js"]
