@@ -5,13 +5,13 @@ import { fileURLToPath } from 'node:url';
 const browser = await chromium.launch({headless: true,
   ...(process.env.KEYBOARD_TEST_CHROMIUM ? {executablePath: process.env.KEYBOARD_TEST_CHROMIUM} : {})});
 try {
-  const page = await browser.newPage({viewport: {width: 480, height: 480}});
+  const page = await browser.newPage({viewport: {width: 480, height: 480}, hasTouch: true, isMobile: true});
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await page.goto(new URL('./keyboard.html', import.meta.url).href);
   const username = page.locator('demo-field[label="Username"] input');
   const password = page.locator('demo-field[label="Password"] input');
-  const key = text => page.getByRole('button', {name: text, exact: true}).click();
-  await username.click(); await key('Open touch keyboard'); await key('Shift');
+  const key = text => page.getByRole('button', {name: text, exact: true}).tap();
+  await username.tap(); await key('Open touch keyboard'); await key('Shift');
   for (const c of ['T','e','s','t']) await key(c);
   assert.equal(await username.inputValue(), 'Test');
   await key('Tab'); await key('a'); await key('123');
