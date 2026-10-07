@@ -2,9 +2,9 @@
 
 # Remote WebView Server
 
-**Homestead fork:** this version adds a bundled touch keyboard for streamed
-displays. See [FORK.md](FORK.md) for the changes, controls, build instructions
-and licence notices. Upstream remains [strange-v/RemoteWebViewServer](https://github.com/strange-v/RemoteWebViewServer).
+**Homestead fork:** see [FORK.md](FORK.md) for packaging and the separately
+maintained startup fix. The configurable touch keyboard is prepared for an
+upstream contribution, pending physical-display testing.
 
 Headless browser that renders target web pages (e.g., Home Assistant dashboards) and streams them as image tiles over WebSocket to lightweight [clients](https://github.com/strange-v/RemoteWebViewClient) (ESP32 displays). The server supports multiple simultaneous clients, each with its own screen resolution, orientation, and per-device settings.
 
@@ -28,11 +28,47 @@ Headless browser that renders target web pages (e.g., Home Assistant dashboards)
 
 ## On-screen keyboard
 
-This fork includes a built-in on-screen keyboard, enabled by default. Tap a
-text field, then tap the keyboard button in the lower-right corner. Set
-`BUILTIN_KEYBOARD=false` to disable it. No additional container or display
-firmware is required. You can also inject external JavaScript into rendered
-pages using upstream's existing hook:
+The optional built-in touch keyboard lets existing clients type into the page
+without a firmware change. It is disabled by default. Enable it with
+`TOUCH_KEYBOARD_ENABLED=true`, tap a field, then tap the keyboard button. Close
+hides it; Tab and Enter follow the page's normal browser behavior.
+
+| Environment variable | Client URL parameter | Default | Accepted values |
+| --- | --- | --- | --- |
+| `TOUCH_KEYBOARD_ENABLED` | `keyboard` | `false` | `true`, `false` |
+| `TOUCH_KEYBOARD_LAYOUT` | `keyboardLayout` | `qwerty` | `qwerty`, `qwertz`, `azerty` |
+| `TOUCH_KEYBOARD_THEME` | `keyboardTheme` | `dark` | `dark`, `light`, `auto` |
+| `TOUCH_KEYBOARD_POSITION` | `keyboardPosition` | `bottom-right` | `bottom-right`, `bottom-left` |
+| `TOUCH_KEYBOARD_AUTO_OPEN` | `keyboardAutoOpen` | `false` | `true`, `false` |
+
+Client URL parameters override environment defaults for that device. For example,
+`ws://server:8081/?id=display&w=480&h=480&keyboard=true&keyboardLayout=azerty`.
+Reconnect to apply changed settings. Existing client firmware can use the server
+environment settings without adding URL parameters. Invalid options close that
+connection with WebSocket code 1008. No new client protocol messages are needed.
+
+Layouts include uppercase, numbers and symbols; QWERTZ includes German umlauts,
+and AZERTY includes French accents on the second symbol page. `auto` follows the
+browser's color scheme. Automatic opening detects editable controls in the main
+page and open shadow roots; the manual button remains available for other focus
+targets. The keyboard adapts to the viewport and moves above lower-page fields.
+Control labels are currently English; these are Latin layouts, not an IME.
+
+The server uses Chromium's native text/key input, so selection, Backspace,
+maxlength, number fields, textarea newlines, contenteditable and normal form
+events work through the browser. Page scripts can still cancel editing or form
+submission. Fields inside closed shadow roots or embedded frames may need the
+manual button because their focus cannot be detected from the main document.
+
+The bundled script does not read field values, store credentials, log input or
+fetch external code. Its server binding accepts only short text and Backspace,
+Tab or Enter from the current main document, with an ordered, bounded queue.
+Each device has its own session and configuration. The keyboard is not an access
+control mechanism: protect the server and stream as you would without it.
+The asset's MIT notice is in [keyboard/LICENSE.txt](keyboard/LICENSE.txt).
+
+You can also inject custom JavaScript into rendered pages using the independent
+external-script hook:
 
 - `INJECT_JS_URL` (empty by default): direct HTTPS URL to a JavaScript file. If set, the script is fetched once on startup and injected into every new page via `Page.addScriptToEvaluateOnNewDocument`.
 - `INJECT_JS_ALLOW_HTTP` (`false` by default): allow plain HTTP URLs (HTTPS is strongly recommended).
@@ -78,6 +114,11 @@ services:
       DEBUG_PORT: 9221 # internal debug port
       HEALTH_PORT: 18080
       PREFERS_REDUCED_MOTION: false
+      TOUCH_KEYBOARD_ENABLED: false  # enable for touch-only displays
+      TOUCH_KEYBOARD_LAYOUT: qwerty
+      TOUCH_KEYBOARD_THEME: dark
+      TOUCH_KEYBOARD_POSITION: bottom-right
+      TOUCH_KEYBOARD_AUTO_OPEN: false
       INJECT_JS_URL: "https://example.com/keyboard.js"
       INJECT_JS_ALLOW_HTTP: false
       USER_DATA_DIR: /pw-data
@@ -112,3 +153,13 @@ services:
       - "TCP-LISTEN:9222,fork,reuseaddr,keepalive" # external DevTools port
       - "TCP:127.0.0.1:9221"
 ```
+
+## Keyboard development and testing
+
+Run `npm ci`, `npm run build`, `npm run test:run` and `npm run test:keyboard`.
+The browser tests use Playwright's Chromium. Set `KEYBOARD_TEST_CHROMIUM` to an
+installed Chromium executable if needed. They exercise native editing through
+the same CDP binding as the server, multiple device sessions, configuration,
+touch events and 320×240, 480×480 and 1024×600 viewports. Optional
+`KEYBOARD_TEST_SCREENSHOTS` selects a local directory for generic preview images.
+Test data is synthetic; do not put login credentials in fixtures.

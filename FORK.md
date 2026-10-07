@@ -1,21 +1,23 @@
 # Homestead touch keyboard
 
 This fork of [strange-v/RemoteWebViewServer](https://github.com/strange-v/RemoteWebViewServer)
-adds a built-in touch keyboard for streamed displays. Upstream code retains its
+adds a configurable built-in touch keyboard for streamed displays. Upstream code retains its
 MIT licence and attribution. The keyboard's MIT notice is in `keyboard/LICENSE.txt`.
 
 Tap a text field and then the keyboard button in the lower-right corner. The
 keyboard includes uppercase letters, numbers, symbols, Backspace, Tab, Space
-and Enter. Tab selects the next visible editable field, including fields inside
-open web-component shadow roots. Passwords stay masked in the original input;
+and Enter. Tab follows the page's native browser focus order. Passwords stay masked in the original input;
 the keyboard does not copy their values into its own UI, store them or log them.
-Close returns to the page. Closed shadow roots and cross-origin embedded frames
-are not supported.
+Close returns to the page. Automatic opening detects controls in the main document and open shadow roots;
+other focused controls can use the manual button.
 
 The keyboard is drawn by Chromium and streamed with the page. Existing clients
 send their normal touch events: no display firmware change or helper container
 is needed. The asset is bundled in the image and loaded locally before every
-new device page navigates. Set `BUILTIN_KEYBOARD=false` to disable it. The upstream
+new device page navigates. It is now opt-in: set `TOUCH_KEYBOARD_ENABLED=true` to enable it. The earlier
+`BUILTIN_KEYBOARD` flag is replaced by the documented `TOUCH_KEYBOARD_*` settings
+in README.md. Layout, theme, position and automatic opening can also be selected
+per display using URL parameters. The upstream
 `INJECT_JS_URL` hook remains available independently for other extensions.
 
 The fork also retains navigation and touch requests received while a device's
@@ -33,3 +35,8 @@ Keep `/pw-data` mounted to persistent storage to retain the browser profile.
 This does not share the login session from your phone or computer: log in on
 the display's own streamed browser page. No Home Assistant credentials belong
 in display YAML, this repository or image environment variables.
+
+The generalized implementation is maintained separately on
+`codex/upstream-touch-keyboard`, based directly on current upstream main. That
+branch excludes fork-specific image publishing and the separate startup fix.
+It has not been submitted upstream pending physical-display tests.

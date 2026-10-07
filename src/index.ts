@@ -20,7 +20,14 @@ wss.on("connection", (ws, req) => {
   const url = new URL(req.url || "", `ws://localhost:${WS_PORT}`);
   const id = url.searchParams.get("id") || "default";
 
-  const cfg = makeConfigFromParams(url.searchParams);
+  let cfg;
+  try {
+    cfg = makeConfigFromParams(url.searchParams);
+  } catch {
+    ws.close(1008, 'Invalid device configuration');
+    return;
+  }
+
   setConfigFor(id, cfg);
   logDeviceConfig(id, cfg);
 

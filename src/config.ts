@@ -1,4 +1,5 @@
 import env from "env-var";
+import { readTouchKeyboardConfig, touchKeyboardConfigsEqual, type TouchKeyboardConfig } from "./touchKeyboardConfig.js";
 import { getRotatedDimensions, Rotation } from "./util.js";
 
 export type DeviceConfig = {
@@ -12,6 +13,7 @@ export type DeviceConfig = {
   minFrameInterval: number;         // ms (>=0)
   jpegQuality: number;              // 1..100
   maxBytesPerMessage: number;       // bytes (>0)
+  keyboard?: TouchKeyboardConfig;
   rotation: Rotation;               // degrees
 };
 
@@ -135,6 +137,7 @@ export function makeConfigFromParams(params: URLSearchParams): DeviceConfig {
     jpegQuality,
     maxBytesPerMessage,
     rotation,
+    keyboard: readTouchKeyboardConfig(params),
   };
 }
 
@@ -154,7 +157,8 @@ export function deviceConfigsEqual(
     a.minFrameInterval === b.minFrameInterval &&
     a.jpegQuality === b.jpegQuality &&
     a.maxBytesPerMessage === b.maxBytesPerMessage &&
-    a.rotation === b.rotation
+    a.rotation === b.rotation &&
+    touchKeyboardConfigsEqual(a.keyboard, b.keyboard)
   );
 }
 

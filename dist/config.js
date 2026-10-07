@@ -1,4 +1,5 @@
 import env from "env-var";
+import { readTouchKeyboardConfig, touchKeyboardConfigsEqual } from "./touchKeyboardConfig.js";
 import { getRotatedDimensions } from "./util.js";
 const DEFAULTS = {
     tileSize: 32,
@@ -120,6 +121,7 @@ export function makeConfigFromParams(params) {
         jpegQuality,
         maxBytesPerMessage,
         rotation,
+        keyboard: readTouchKeyboardConfig(params),
     };
 }
 export function deviceConfigsEqual(a, b, eps = 1e-6) {
@@ -133,7 +135,8 @@ export function deviceConfigsEqual(a, b, eps = 1e-6) {
         a.minFrameInterval === b.minFrameInterval &&
         a.jpegQuality === b.jpegQuality &&
         a.maxBytesPerMessage === b.maxBytesPerMessage &&
-        a.rotation === b.rotation);
+        a.rotation === b.rotation &&
+        touchKeyboardConfigsEqual(a.keyboard, b.keyboard));
 }
 export function logDeviceConfig(id, cfg) {
     const entries = [
