@@ -4,6 +4,7 @@ import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { getTouchKeyboardScript, installTouchKeyboard } from '../dist/touchKeyboard.js';
 import { readTouchKeyboardConfig } from '../dist/touchKeyboardConfig.js';
+import { checkKeyboardTriggers } from './keyboardTriggers.browser.mjs';
 
 const browser = await chromium.launch({headless: true,
   ...(process.env.KEYBOARD_TEST_CHROMIUM ? {executablePath: process.env.KEYBOARD_TEST_CHROMIUM} : {})});
@@ -110,6 +111,7 @@ try {
   assert.equal(await disabled.locator('#rwv-touch-keyboard').count(),0); await disabled.close();
   console.log('PASS: opt-in, per-display isolation, layouts, themes, position, automatic opening, Escape and 320×240 / 480×480 / 1024×600 bounds.');
   assert.deepEqual(errors, []);
+  await checkKeyboardTriggers(browser,config);
   console.log('PASS: native input, shadow roots, case, symbols, Tab, selection, Unicode deletion, cancelled input, maxlength, Enter, read-only fields, password masking and bounds.');
 } finally {
   await browser.close();
