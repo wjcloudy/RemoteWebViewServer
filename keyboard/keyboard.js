@@ -102,11 +102,45 @@
       if (editable(input)) { target = input; updateLabel(); if (config.autoOpen) setOpen(true); }
       else if (!e.composedPath().includes(host)) {target = null; updateLabel();}
     }, true);
+    let hold = null;
+    function cancelHold() {
+      if (hold) clearTimeout(hold.timer);
+      hold = null;
+    }
     document.addEventListener('pointerdown', e => {
+      // A second contact, page drag or cancelled gesture must not open it.
+      cancelHold();
       if (e.composedPath().includes(host)) return;
       const input = e.composedPath().find(editable);
       if (input) { target = input; updateLabel(); }
+      if (!config.longPress || !input || !e.isPrimary || !['touch','pen'].includes(e.pointerType)) return;
+      const gesture = {id:e.pointerId,x:e.clientX,y:e.clientY,input,timer:null};
+      hold = gesture;
+      gesture.timer = setTimeout(() => {
+        if (hold !== gesture || !input.isConnected || !editable(input)) return;
+        target = input; input.focus({preventScroll:true}); setOpen(true);
+      }, config.longPressMs ?? 650);
     }, true);
+    document.addEventListener('pointermove', e => {
+      if (hold && e.pointerId === hold.id && Math.hypot(e.clientX-hold.x,e.clientY-hold.y) > 12) cancelHold();
+    }, {capture:true,passive:true});
+    document.addEventListener('pointerup', e => {
+      cancelHold();
+      if (e.composedPath().includes(host)) return;
+      const input = e.composedPath().find(editable);
+      // A field can remain focused after Close. Tapping it again should reopen
+      // in focus mode even though the browser emits no second focusin event.
+      if (config.autoOpen && input && active() === input) {target=input;setOpen(true);}
+    }, true);
+    document.addEventListener('pointercancel', cancelHold, true);
+    document.addEventListener('contextmenu', e => {
+      // Only a configured hold on an editable field replaces the browser's
+      // native long-touch menu. Other page gestures keep their normal behavior.
+      if (hold && e.composedPath().includes(hold.input)) e.preventDefault();
+    }, true);
+    document.addEventListener('scroll', cancelHold, {capture:true,passive:true});
+    document.addEventListener('visibilitychange', () => {if (document.hidden) cancelHold();});
+    window.addEventListener('blur', cancelHold);
     function setOpen(value) {
       if (editable(active())) target = active();
       open = value; panel.hidden = !value; toggle.hidden = value;
@@ -130,7 +164,7 @@
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape' && open) {setOpen(false);e.preventDefault();}
     }, true);
-    window.addEventListener('resize', updateLabel);
+    window.addEventListener('resize', () => {cancelHold();updateLabel();});
     function render() {
       keys.replaceChildren();
       const rows = symbols ? (moreSymbols ? ['[]{}<>%+=~','^|`:$€£@#',config.layout === 'azerty' ? 'éèàçù!?;' : '-_/\\:;!?ß'] :
@@ -157,6 +191,7 @@
       keys.append(row);
     }
     render(); updateLabel();
+    if (config.autoOpen && editable(active())) {target=active();setOpen(true);}
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',start,{once:true});
   else start();

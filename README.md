@@ -36,6 +36,26 @@ hides it; Tab and Enter follow the page's normal browser behavior.
 | `TOUCH_KEYBOARD_THEME` | `keyboardTheme` | `dark` | `dark`, `light`, `auto` |
 | `TOUCH_KEYBOARD_POSITION` | `keyboardPosition` | `bottom-right` | `bottom-right`, `bottom-left` |
 | `TOUCH_KEYBOARD_AUTO_OPEN` | `keyboardAutoOpen` | `false` | `true`, `false` |
+| `TOUCH_KEYBOARD_LONG_PRESS` | `keyboardLongPress` | `false` | `true`, `false` |
+| `TOUCH_KEYBOARD_LONG_PRESS_MS` | `keyboardLongPressMs` | `650` | Integer from `300` to `2000` milliseconds |
+
+Choose how the keyboard opens using the screenshot-server container's environment
+settings (for example, edit its environment in Homestead):
+
+| Opening behavior | `TOUCH_KEYBOARD_AUTO_OPEN` | `TOUCH_KEYBOARD_LONG_PRESS` |
+| --- | --- | --- |
+| Keyboard button only | `false` | `false` |
+| Focus or tap an editable field | `true` | `false` |
+| Touch and hold an editable field | `false` | `true` |
+| Either focus or hold | `true` | `true` |
+
+The keyboard button and Close remain available in every mode. Focus mode also
+reopens when you tap a still-focused field after Close. Hold mode opens after
+650 ms by default, replaces that field's native long-touch menu, and cancels on
+early release, movement, scrolling, a second contact or a cancelled touch. It
+works with touch and pen input; mouse clicks keep the regular button behavior.
+Both modes ignore disabled and read-only controls. Change the server settings
+and restart it to apply them to connected displays; no ESPHome update is needed.
 
 Client URL parameters override environment defaults for that device. For example,
 `ws://server:8081/?id=display&w=480&h=480&keyboard=true&keyboardLayout=azerty`.
@@ -115,6 +135,8 @@ services:
       TOUCH_KEYBOARD_THEME: dark
       TOUCH_KEYBOARD_POSITION: bottom-right
       TOUCH_KEYBOARD_AUTO_OPEN: false
+      TOUCH_KEYBOARD_LONG_PRESS: false
+      TOUCH_KEYBOARD_LONG_PRESS_MS: 650
       INJECT_JS_URL: "https://example.com/keyboard.js"
       INJECT_JS_ALLOW_HTTP: false
       USER_DATA_DIR: /pw-data
