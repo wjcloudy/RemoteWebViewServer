@@ -5,17 +5,18 @@ import { makeConfigFromParams, setConfigFor, logDeviceConfig } from "./config.js
 import { broadcaster, ensureDeviceAsync, cleanupIdleAsync } from './deviceManager.js';
 import { InputRouter } from "./inputRouter.js";
 import { bootstrapAsync } from './browser.js';
-import { MsgType } from './protocol.js';
+import { attachDeviceInput } from './deviceConnection.js';
 
 const WS_PORT = env.get("WS_PORT").default("8081").asIntPositive();
 const HEALTH_PORT = env.get("HEALTH_PORT").default("18080").asIntPositive();
 
-const wss = new WebSocketServer({ port: WS_PORT, perMessageDeflate: false });
 const inputRouter = new InputRouter();
 
 await bootstrapAsync();
+// Do not accept a display connection before its browser can be prepared.
+const wss = new WebSocketServer({ port: WS_PORT, perMessageDeflate: false });
 
-wss.on("connection", async (ws, req) => {
+wss.on("connection", (ws, req) => {
   const url = new URL(req.url || "", `ws://localhost:${WS_PORT}`);
   const id = url.searchParams.get("id") || "default";
 
@@ -24,31 +25,16 @@ wss.on("connection", async (ws, req) => {
   logDeviceConfig(id, cfg);
 
   broadcaster.addClient(id, ws);
-  const dev = await ensureDeviceAsync(id, cfg);
-
-  ws.on("message", (msg, isBinary) => {
-    if (!isBinary) return;
-
-    const buf: Buffer = Buffer.isBuffer(msg) ? msg : Buffer.from(msg as ArrayBuffer);
-    switch (buf.readUInt8(0)) {
-      case MsgType.Touch:
-        inputRouter.handleTouchPacketAsync(dev, buf).catch(e => console.warn(`Failed to handle touch packet: ${(e as Error).message}`));
-        break;
-      case MsgType.Keepalive:
-        dev.lastActive = Date.now();
-        break;
-      case MsgType.FrameStats:
-        inputRouter.handleFrameStatsPacketAsync(dev, buf).catch(() => console.warn(`Failed to handle Self test packet`));
-        break;
-      case MsgType.OpenURL:
-        inputRouter.handleOpenURLPacketAsync(dev, buf).catch(e => console.warn(`Failed to handle OpenURL packet: ${(e as Error).message}`));
-        break;
-    }
-  })
+  const ready = ensureDeviceAsync(id, cfg);
+  attachDeviceInput(ws, ready, inputRouter);
+  ready.catch(error => {
+    console.warn(`Failed to prepare device: ${(error as Error).message}`);
+    ws.close(1011, 'Device initialization failed');
+  });
 
   ws.on("close", () => {
-    dev.lastActive = Date.now();
     broadcaster.removeClient(id, ws);
+    ready.then(dev => { dev.lastActive = Date.now(); }).catch(() => {});
   })
 });
 

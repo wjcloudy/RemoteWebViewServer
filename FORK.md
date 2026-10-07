@@ -18,6 +18,11 @@ is needed. The asset is bundled in the image and loaded locally before every
 new device page navigates. Set `BUILTIN_KEYBOARD=false` to disable it. The upstream
 `INJECT_JS_URL` hook remains available independently for other extensions.
 
+The fork also retains navigation and touch requests received while a device's
+browser session is being prepared. The WebSocket listener starts after browser
+bootstrap, and input is handled in order with a bounded queue. This prevents a
+display from reconnecting to a blank page after its initial URL was missed.
+
 The regular `dockerfile` builds and tests from source. `dockerfile.keyboard`
 packages the changed compiled modules on the pinned upstream runtime, keeping
 browser and dependency versions unchanged. Run `npm ci`, `npm run test:run`,
