@@ -5,5 +5,5 @@ WORKDIR /app
 COPY dist/touchKeyboard.js dist/touchKeyboardConfig.js dist/config.js dist/deviceManager.js dist/deviceConnection.js dist/index.js ./dist/
 COPY keyboard ./keyboard
 COPY LICENSE ./LICENSE
-LABEL org.opencontainers.image.source="https://github.com/homestead-lab/RemoteWebViewServer" \
+LABEL org.opencontainers.image.source="https://github.com/wjcloudy/RemoteWebViewServer" \
       org.opencontainers.image.licenses="MIT"

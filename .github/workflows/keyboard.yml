@@ -50,7 +50,7 @@ jobs:
           EXISTING_IMAGE: ${{ inputs.existing_image }}
         run: |
           set -euo pipefail
-          repository="ghcr.io/homestead-lab/remote-webview-server"
+          repository="ghcr.io/wjcloudy/remote-webview-server"
           printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           if [ -n "$EXISTING_IMAGE" ]; then
             [[ "$EXISTING_IMAGE" =~ ^keyboard-[0-9a-f]{12}$ ]] || { printf 'Invalid tested image tag\n' >&2; exit 1; }

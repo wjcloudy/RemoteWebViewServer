@@ -44,19 +44,19 @@ It has not been submitted upstream pending physical-display tests.
 ## Fork image updates
 
 The fork publishes an immutable `keyboard-<commit>` image and a rolling
-`keyboard-test` tag in `ghcr.io/homestead-lab/remote-webview-server`. The latter
+`keyboard-test` tag in `ghcr.io/wjcloudy/remote-webview-server`. The latter
 follows tested keyboard builds; it is not an upstream stable release channel.
 Upstream's `strangev/remote-webview-server:latest` and `:beta` remain independent.
 
 For a deployment pinned to a digest, Homestead needs the source tag recorded in
 its deployment metadata to check for future updates. Preserve the digest and
-record `ghcr.io/homestead-lab/remote-webview-server:keyboard-test` in
+record `ghcr.io/wjcloudy/remote-webview-server:keyboard-test` in
 `homestead.io/update-sources`, keyed by the actual container name. For example:
 
 ```yaml
 metadata:
   annotations:
-    homestead.io/update-sources: '{"rwvserver":"ghcr.io/homestead-lab/remote-webview-server:keyboard-test"}'
+    homestead.io/update-sources: '{"rwvserver":"ghcr.io/wjcloudy/remote-webview-server:keyboard-test"}'
 ```
 
 A numbered upstream tag can be compared with newer numbered releases. An
