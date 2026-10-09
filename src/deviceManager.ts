@@ -1,12 +1,12 @@
 import { CDPSession } from "playwright-core";
 import sharp from "sharp";
-import { DeviceConfig, deviceConfigsEqual, readInjectScriptConfig } from "./config.js";
+import { DeviceConfig, deviceConfigsEqual, readInjectScriptConfig, configureInjectedScript } from "./config.js";
 import { getRoot } from "./cdpRoot.js";
 import { FrameProcessor } from "./frameProcessor.js";
 import { DeviceBroadcaster } from "./broadcaster.js";
 import { hash32 } from "./util.js";
 import { SelfTestRunner } from "./selfTest.js";
-import { installTouchKeyboard } from "./touchKeyboard.js";
+import { installNativeInput } from "./nativeInput.js";
 import { getInjectScriptFromUrl } from "./scriptLoader.js";
 
 export type DeviceSession = {
@@ -75,11 +75,11 @@ export async function ensureDeviceAsync(id: string, cfg: DeviceConfig): Promise<
     });
   }
 
-  await installTouchKeyboard(session, cfg.keyboard);
   const injectConfig = readInjectScriptConfig();
-  const keyboardScript = injectConfig.url ? await getInjectScriptFromUrl(injectConfig) : undefined;
-  if (keyboardScript) {
-    await session.send('Page.addScriptToEvaluateOnNewDocument', { source: keyboardScript });
+  const injectedScript = injectConfig.url ? await getInjectScriptFromUrl(injectConfig) : undefined;
+  if (injectedScript) {
+    if (injectConfig.nativeInput) await installNativeInput(session);
+    await session.send('Page.addScriptToEvaluateOnNewDocument', { source: configureInjectedScript(injectedScript, cfg.injectJsConfig) });
   }
 
   await session.send('Page.startScreencast', {

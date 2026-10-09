@@ -1,5 +1,4 @@
 import env from "env-var";
-import { readTouchKeyboardConfig, touchKeyboardConfigsEqual, type TouchKeyboardConfig } from "./touchKeyboardConfig.js";
 import { getRotatedDimensions, Rotation } from "./util.js";
 
 export type DeviceConfig = {
@@ -13,13 +12,15 @@ export type DeviceConfig = {
   minFrameInterval: number;         // ms (>=0)
   jpegQuality: number;              // 1..100
   maxBytesPerMessage: number;       // bytes (>0)
-  keyboard?: TouchKeyboardConfig;
+  injectJsConfig?: Record<string, unknown>;
   rotation: Rotation;               // degrees
 };
 
 export type InjectScriptConfig = {
   url?: string;
   allowHttp: boolean;
+  nativeInput: boolean;
+  sha256?: string;
 };
 
 const DEFAULTS = {
@@ -137,7 +138,7 @@ export function makeConfigFromParams(params: URLSearchParams): DeviceConfig {
     jpegQuality,
     maxBytesPerMessage,
     rotation,
-    keyboard: readTouchKeyboardConfig(params),
+    injectJsConfig: readInjectedOptions(params.get("injectJsConfig") ?? process.env.INJECT_JS_CONFIG),
   };
 }
 
@@ -158,7 +159,7 @@ export function deviceConfigsEqual(
     a.jpegQuality === b.jpegQuality &&
     a.maxBytesPerMessage === b.maxBytesPerMessage &&
     a.rotation === b.rotation &&
-    touchKeyboardConfigsEqual(a.keyboard, b.keyboard)
+    JSON.stringify(a.injectJsConfig ?? {}) === JSON.stringify(b.injectJsConfig ?? {})
   );
 }
 
@@ -192,5 +193,27 @@ export function readInjectScriptConfig(): InjectScriptConfig {
   return {
     url,
     allowHttp,
+    nativeInput: parseBool(process.env.INJECT_JS_NATIVE_INPUT, false),
+    sha256: readScriptHash(process.env.INJECT_JS_SHA256),
   };
+}
+export function readInjectedOptions(raw?: string | null): Record<string, unknown> {
+  if (!raw?.trim()) return {};
+  if (Buffer.byteLength(raw, 'utf8') > 4096) throw new Error('Injected script configuration is too large');
+  try {
+    const value = JSON.parse(raw);
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error();
+    return value;
+  } catch { throw new Error('Invalid injected script configuration'); }
+}
+
+export function readScriptHash(raw?: string): string | undefined {
+  if (!raw?.trim()) return;
+  if (!/^[a-f0-9]{64}$/i.test(raw.trim())) throw new Error('Invalid injected script SHA-256');
+  return raw.trim().toLowerCase();
+}
+
+export function configureInjectedScript(source: string, options: Record<string, unknown> = {}): string {
+  // Parse JSON as data, never as a JavaScript object literal or executable code.
+  return `if (window === window.top) globalThis.__rwvInjectedScriptConfig = JSON.parse(${JSON.stringify(JSON.stringify(options))});\n${source}`;
 }

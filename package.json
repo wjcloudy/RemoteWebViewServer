@@ -10,7 +10,7 @@
     "test:run": "vitest run",
     "test:watch": "vitest --watch",
     "coverage": "vitest run --coverage",
-    "test:keyboard": "node tests/keyboard.browser.mjs"
+    "test:browser": "node tests/nativeInput.browser.mjs"
   },
   "dependencies": {
     "devtools-protocol": "^0.0.1687809",

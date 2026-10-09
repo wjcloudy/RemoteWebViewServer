@@ -3,8 +3,8 @@
 # Remote WebView Server
 
 **Homestead fork:** see [FORK.md](FORK.md) for packaging and the separately
-maintained startup fix. The configurable touch keyboard is prepared for an
-upstream contribution, pending physical-display testing.
+maintained startup fix and generic native input bridge. The touch keyboard is
+maintained in its own project and loaded through the upstream external-script hook.
 
 Headless browser that renders target web pages (e.g., Home Assistant dashboards) and streams them as image tiles over WebSocket to lightweight [clients](https://github.com/strange-v/RemoteWebViewClient) (ESP32 displays). The server supports multiple simultaneous clients, each with its own screen resolution, orientation, and per-device settings.
 
@@ -26,76 +26,54 @@ Headless browser that renders target web pages (e.g., Home Assistant dashboards)
 - Health endpoint for container orchestration
 - Optional DevTools access via TCP proxy
 
-## On-screen keyboard
+## External scripts and touch keyboard
 
-The optional built-in touch keyboard lets existing clients type into the page
-without a firmware change. It is disabled by default. Enable it with
-`TOUCH_KEYBOARD_ENABLED=true`, tap a field, then tap the keyboard button. Close
-hides it; Tab and Enter follow the page's normal browser behavior.
+The [touch keyboard](https://github.com/wjcloudy/RemoteWebViewKeyboard) is a
+separate MIT-licensed component loaded through the upstream `INJECT_JS_URL`
+hook. Its layout, theme and opening gestures are maintained outside this server.
+Existing display firmware does not need an update.
 
-| Environment variable | Client URL parameter | Default | Accepted values |
-| --- | --- | --- | --- |
-| `TOUCH_KEYBOARD_ENABLED` | `keyboard` | `false` | `true`, `false` |
-| `TOUCH_KEYBOARD_LAYOUT` | `keyboardLayout` | `qwerty` | `qwerty`, `qwertz`, `azerty` |
-| `TOUCH_KEYBOARD_THEME` | `keyboardTheme` | `dark` | `dark`, `light`, `auto` |
-| `TOUCH_KEYBOARD_POSITION` | `keyboardPosition` | `bottom-right` | `bottom-right`, `bottom-left` |
-| `TOUCH_KEYBOARD_AUTO_OPEN` | `keyboardAutoOpen` | `false` | `true`, `false` |
-| `TOUCH_KEYBOARD_LONG_PRESS` | `keyboardLongPress` | `false` | `true`, `false` |
-| `TOUCH_KEYBOARD_LONG_PRESS_MS` | `keyboardLongPressMs` | `650` | Integer from `300` to `2000` milliseconds |
+```yaml
+INJECT_JS_URL: https://raw.githubusercontent.com/wjcloudy/RemoteWebViewKeyboard/v1.0.0/dist/keyboard.js
+INJECT_JS_NATIVE_INPUT: 'true'
+INJECT_JS_CONFIG: '{"keyboard":{"showButton":false,"cornerHold":true,"shortcutCorner":"bottom-right","longPressMs":650}}'
+```
 
-Choose how the keyboard opens using the screenshot-server container's environment
-settings (for example, edit its environment in Homestead):
+Tap a field, then hold the bottom-right corner for 650 ms. Close hides it.
+See the component's README for other opening modes and settings.
 
-| Opening behavior | `TOUCH_KEYBOARD_AUTO_OPEN` | `TOUCH_KEYBOARD_LONG_PRESS` |
+| Environment variable | Default | Purpose |
 | --- | --- | --- |
-| Keyboard button only | `false` | `false` |
-| Focus or tap an editable field | `true` | `false` |
-| Touch and hold an editable field | `false` | `true` |
-| Either focus or hold | `true` | `true` |
+| `INJECT_JS_URL` | Empty | Direct HTTPS script URL; pin a release or full commit |
+| `INJECT_JS_ALLOW_HTTP` | `false` | Allow HTTP for trusted local scripts |
+| `INJECT_JS_SHA256` | Empty | Expected SHA-256 of the downloaded file |
+| `INJECT_JS_CONFIG` | `{}` | JSON object exposed as `globalThis.__rwvInjectedScriptConfig` |
+| `INJECT_JS_NATIVE_INPUT` | `false` | Enable the optional native text/key bridge |
 
-The keyboard button and Close remain available in every mode. Focus mode also
-reopens when you tap a still-focused field after Close. Hold mode opens after
-650 ms by default, replaces that field's native long-touch menu, and cancels on
-early release, movement, scrolling, a second contact or a cancelled touch. It
-works with touch and pen input; mouse clicks keep the regular button behavior.
-Both modes ignore disabled and read-only controls. Change the server settings
-and restart it to apply them to connected displays; no ESPHome update is needed.
+Configuration is limited to 4096 UTF-8 bytes. The per-display `injectJsConfig`
+URL parameter replaces the default JSON object; reconnect to apply changes.
+Invalid JSON closes that display connection with code 1008. Do not put secrets
+in script configuration. Configuration and typed input are not logged.
 
-Client URL parameters override environment defaults for that device. For example,
-`ws://server:8081/?id=display&w=480&h=480&keyboard=true&keyboardLayout=azerty`.
-Reconnect to apply changed settings. Existing client firmware can use the server
-environment settings without adding URL parameters. Invalid options close that
-connection with WebSocket code 1008. No new client protocol messages are needed.
+Scripts are limited to 256 KiB and fetched with a five-second timeout. Failed
+fetches or checksum mismatches skip injection, preserving ordinary streaming.
+The script is cached within the process; restart to apply a new URL/hash.
+The native input bridge is installed only when a script loads and is explicitly
+opted in. It accepts short text (1-16 UTF-16 units, no control characters) and
+Backspace/Tab/Enter through `__rwvNativeInput(JSON.stringify(message))`, where
+message is `{type:'text',text:'a'}` or `{type:'key',key:'Enter'}`. Inputs from
+iframes or obsolete documents are ignored; the ordered queue is bounded at 128.
+The bridge exposes no arbitrary browser commands and never logs input payloads.
 
-Layouts include uppercase, numbers and symbols; QWERTZ includes German umlauts,
-and AZERTY includes French accents on the second symbol page. `auto` follows the
-browser's color scheme. Automatic opening detects editable controls in the main
-page and open shadow roots; the manual button remains available for other focus
-targets. The keyboard adapts to the viewport and moves above lower-page fields.
-Control labels are currently English; these are Latin layouts, not an IME.
-
-The server uses Chromium's native text/key input, so selection, Backspace,
-maxlength, number fields, textarea newlines, contenteditable and normal form
-events work through the browser. Page scripts can still cancel editing or form
-submission. Fields inside closed shadow roots or embedded frames may need the
-manual button because their focus cannot be detected from the main document.
-
-The bundled script does not read field values, store credentials, log input or
-fetch external code. Its server binding accepts only short text and Backspace,
-Tab or Enter from the current main document, with an ordered, bounded queue.
-Each device has its own session and configuration. The keyboard is not an access
-control mechanism: protect the server and stream as you would without it.
-The asset's MIT notice is in [keyboard/LICENSE.txt](keyboard/LICENSE.txt).
-
-You can also inject custom JavaScript into rendered pages using the independent
-external-script hook:
-
-- `INJECT_JS_URL` (empty by default): direct HTTPS URL to a JavaScript file. If set, the script is fetched once on startup and injected into every new page via `Page.addScriptToEvaluateOnNewDocument`.
-- `INJECT_JS_ALLOW_HTTP` (`false` by default): allow plain HTTP URLs (HTTPS is strongly recommended).
+The former `TOUCH_KEYBOARD_*` settings have moved to the keyboard object's JSON
+configuration. This server contains no keyboard asset or keyboard-specific
+configuration. Stock upstream has the external-script hook but does not supply
+this optional native input bridge.
 
 > [!CAUTION]
 >
-> The injected script runs with full access to every page the server renders, including any active sessions, credentials, and cookies. Only use scripts from sources you fully trust. Never point this at a URL controlled by a third party.
+> Injected scripts have access to the rendered page and its authenticated session.
+> Only install code you trust. Use a pinned URL and SHA-256 for reproducibility.
 
 ## Accessing the server’s tab with Chrome DevTools
 
@@ -178,7 +156,7 @@ services:
 
 ## Keyboard development and testing
 
-Run `npm ci`, `npm run build`, `npm run test:run` and `npm run test:keyboard`.
+Run `npm ci`, `npm run build`, `npm run test:run` and `npm run test:browser`.
 The browser tests use Playwright's Chromium. Set `KEYBOARD_TEST_CHROMIUM` to an
 installed Chromium executable if needed. They exercise native editing through
 the same CDP binding as the server, multiple device sessions, configuration,

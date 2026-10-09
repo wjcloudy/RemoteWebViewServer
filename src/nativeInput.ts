@@ -1,12 +1,8 @@
-import { readFile } from 'node:fs/promises';
-import type { TouchKeyboardConfig } from './touchKeyboardConfig.js';
-
-export const KEYBOARD_BINDING = '__rwvTouchKeyboardInput';
+export const NATIVE_INPUT_BINDING = '__rwvNativeInput';
 type Session = { send(method: string, params?: any): Promise<any>; on(method: string, handler: (event: any) => void): void };
-type KeyboardInput = { type: 'text'; text: string } | { type: 'key'; key: 'Backspace' | 'Tab' | 'Enter' };
-let asset: Promise<string> | undefined;
+type NativeInput = { type: 'text'; text: string } | { type: 'key'; key: 'Backspace' | 'Tab' | 'Enter' };
 
-export function parseKeyboardInput(payload: string): KeyboardInput | undefined {
+export function parseNativeInput(payload: string): NativeInput | undefined {
   if (typeof payload !== 'string' || payload.length > 128) return;
   try {
     const message = JSON.parse(payload);
@@ -21,15 +17,7 @@ export function parseKeyboardInput(payload: string): KeyboardInput | undefined {
   } catch { /* Ignore malformed page messages without logging typed data. */ }
 }
 
-export async function getTouchKeyboardScript(config?: TouchKeyboardConfig): Promise<string | undefined> {
-  if (!config?.enabled) return;
-  asset ??= readFile(new URL('../keyboard/keyboard.js', import.meta.url), 'utf8');
-  return `${await asset}\n(${JSON.stringify(config)});`;
-}
-
-export async function installTouchKeyboard(session: Session, config?: TouchKeyboardConfig): Promise<void> {
-  const source = await getTouchKeyboardScript(config);
-  if (!source) return;
+export async function installNativeInput(session: Session): Promise<void> {
   const {frameTree} = await session.send('Page.getFrameTree');
   const mainFrame = frameTree.frame.id;
   const contexts = new Set<number>();
@@ -41,8 +29,8 @@ export async function installTouchKeyboard(session: Session, config?: TouchKeybo
 
   let pending = 0, queue: Promise<void> = Promise.resolve();
   session.on('Runtime.bindingCalled', event => {
-    if (event.name !== KEYBOARD_BINDING || !contexts.has(event.executionContextId) || pending >= 128) return;
-    const input = parseKeyboardInput(event.payload);
+    if (event.name !== NATIVE_INPUT_BINDING || !contexts.has(event.executionContextId) || pending >= 128) return;
+    const input = parseNativeInput(event.payload);
     if (!input) return;
     pending++;
     queue = queue.then(async () => {
@@ -68,6 +56,5 @@ export async function installTouchKeyboard(session: Session, config?: TouchKeybo
     }).finally(() => { pending--; });
   });
   await session.send('Runtime.enable');
-  await session.send('Runtime.addBinding', {name: KEYBOARD_BINDING});
-  await session.send('Page.addScriptToEvaluateOnNewDocument', {source});
+  await session.send('Runtime.addBinding', {name: NATIVE_INPUT_BINDING});
 }
