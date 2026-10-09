@@ -1,5 +1,4 @@
 import env from "env-var";
-import { readTouchKeyboardConfig, touchKeyboardConfigsEqual } from "./touchKeyboardConfig.js";
 import { getRotatedDimensions } from "./util.js";
 const DEFAULTS = {
     tileSize: 32,
@@ -121,7 +120,7 @@ export function makeConfigFromParams(params) {
         jpegQuality,
         maxBytesPerMessage,
         rotation,
-        keyboard: readTouchKeyboardConfig(params),
+        injectJsConfig: readInjectedOptions(params.get("injectJsConfig") ?? process.env.INJECT_JS_CONFIG),
     };
 }
 export function deviceConfigsEqual(a, b, eps = 1e-6) {
@@ -136,7 +135,7 @@ export function deviceConfigsEqual(a, b, eps = 1e-6) {
         a.jpegQuality === b.jpegQuality &&
         a.maxBytesPerMessage === b.maxBytesPerMessage &&
         a.rotation === b.rotation &&
-        touchKeyboardConfigsEqual(a.keyboard, b.keyboard));
+        JSON.stringify(a.injectJsConfig ?? {}) === JSON.stringify(b.injectJsConfig ?? {}));
 }
 export function logDeviceConfig(id, cfg) {
     const entries = [
@@ -164,5 +163,33 @@ export function readInjectScriptConfig() {
     return {
         url,
         allowHttp,
+        nativeInput: parseBool(process.env.INJECT_JS_NATIVE_INPUT, false),
+        sha256: readScriptHash(process.env.INJECT_JS_SHA256),
     };
+}
+export function readInjectedOptions(raw) {
+    if (!raw?.trim())
+        return {};
+    if (Buffer.byteLength(raw, 'utf8') > 4096)
+        throw new Error('Injected script configuration is too large');
+    try {
+        const value = JSON.parse(raw);
+        if (!value || typeof value !== 'object' || Array.isArray(value))
+            throw new Error();
+        return value;
+    }
+    catch {
+        throw new Error('Invalid injected script configuration');
+    }
+}
+export function readScriptHash(raw) {
+    if (!raw?.trim())
+        return;
+    if (!/^[a-f0-9]{64}$/i.test(raw.trim()))
+        throw new Error('Invalid injected script SHA-256');
+    return raw.trim().toLowerCase();
+}
+export function configureInjectedScript(source, options = {}) {
+    // Parse JSON as data, never as a JavaScript object literal or executable code.
+    return `if (window === window.top) globalThis.__rwvInjectedScriptConfig = JSON.parse(${JSON.stringify(JSON.stringify(options))});\n${source}`;
 }

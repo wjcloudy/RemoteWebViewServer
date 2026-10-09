@@ -1,11 +1,11 @@
 import sharp from "sharp";
-import { deviceConfigsEqual, readInjectScriptConfig } from "./config.js";
+import { deviceConfigsEqual, readInjectScriptConfig, configureInjectedScript } from "./config.js";
 import { getRoot } from "./cdpRoot.js";
 import { FrameProcessor } from "./frameProcessor.js";
 import { DeviceBroadcaster } from "./broadcaster.js";
 import { hash32 } from "./util.js";
 import { SelfTestRunner } from "./selfTest.js";
-import { installTouchKeyboard } from "./touchKeyboard.js";
+import { installNativeInput } from "./nativeInput.js";
 import { getInjectScriptFromUrl } from "./scriptLoader.js";
 const PREFERS_REDUCED_MOTION = /^(1|true|yes|on)$/i.test(process.env.PREFERS_REDUCED_MOTION ?? '');
 const devices = new Map();
@@ -50,11 +50,12 @@ export async function ensureDeviceAsync(id, cfg) {
             features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
         });
     }
-    await installTouchKeyboard(session, cfg.keyboard);
     const injectConfig = readInjectScriptConfig();
-    const keyboardScript = injectConfig.url ? await getInjectScriptFromUrl(injectConfig) : undefined;
-    if (keyboardScript) {
-        await session.send('Page.addScriptToEvaluateOnNewDocument', { source: keyboardScript });
+    const injectedScript = injectConfig.url ? await getInjectScriptFromUrl(injectConfig) : undefined;
+    if (injectedScript) {
+        if (injectConfig.nativeInput)
+            await installNativeInput(session);
+        await session.send('Page.addScriptToEvaluateOnNewDocument', { source: configureInjectedScript(injectedScript, cfg.injectJsConfig) });
     }
     await session.send('Page.startScreencast', {
         format: 'png',

@@ -1,6 +1,7 @@
+import { createHash } from "node:crypto";
 import { InjectScriptConfig } from "./config.js";
 
-let cachedUrl: string | undefined;
+let cachedKey: string | undefined;
 let cachedScript: string | undefined;
 
 function isAllowedProtocol(url: URL, allowHttp: boolean): boolean {
@@ -15,7 +16,8 @@ export async function getInjectScriptFromUrl(cfg: InjectScriptConfig): Promise<s
     return undefined;
   }
 
-  if (cachedUrl === cfg.url && cachedScript) {
+  const cacheKey = JSON.stringify([cfg.url, cfg.allowHttp, cfg.sha256]);
+  if (cachedKey === cacheKey && cachedScript) {
     return cachedScript;
   }
 
@@ -55,19 +57,32 @@ export async function getInjectScriptFromUrl(cfg: InjectScriptConfig): Promise<s
       return undefined;
     }
 
-    const bytes = Buffer.from(await response.arrayBuffer());
+    const finalUrl = new URL(response.url || cfg.url);
+    if (!isAllowedProtocol(finalUrl, cfg.allowHttp)) throw new Error('Disallowed redirect');
+    const chunks: Uint8Array[] = [];
+    let length = 0;
+    if (!response.body) throw new Error('No script body');
+    for await (const chunk of response.body as any) {
+      length += chunk.length;
+      if (length > 262144) { controller.abort(); throw new Error('Script exceeds limit'); }
+      chunks.push(chunk);
+    }
+    const bytes = Buffer.concat(chunks);
+    if (cfg.sha256 && createHash('sha256').update(bytes).digest('hex') !== cfg.sha256) {
+      console.warn('[inject] Script checksum mismatch; injection skipped');
+      return undefined;
+    }
     const script = bytes.toString("utf8");
     if (!script.trim()) {
       console.warn("[inject] Downloaded script is empty; script injection skipped");
       return undefined;
     }
 
-    cachedUrl = cfg.url;
+    cachedKey = cacheKey;
     cachedScript = script;
     return script;
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.warn(`[inject] Failed to download script: ${message}; script injection skipped`);
+    console.warn("[inject] Script download failed; injection skipped");
     return undefined;
   } finally {
     clearTimeout(timeout);

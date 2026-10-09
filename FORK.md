@@ -1,47 +1,21 @@
-# Homestead touch keyboard
+# Remote WebView Server fork
 
-This fork of [strange-v/RemoteWebViewServer](https://github.com/strange-v/RemoteWebViewServer)
-adds a configurable built-in touch keyboard for streamed displays. Upstream code retains its
-MIT licence and attribution. The keyboard's MIT notice is in `keyboard/LICENSE.txt`.
+This MIT-licensed fork retains the startup navigation fix and adds a generic,
+opt-in native input bridge for external scripts. The upstream licence and
+attribution remain in `LICENSE`.
 
-Tap a text field and then the keyboard button in the lower-right corner. The
-keyboard includes uppercase letters, numbers, symbols, Backspace, Tab, Space
-and Enter. Tab follows the page's native browser focus order. Passwords stay masked in the original input;
-the keyboard does not copy their values into its own UI, store them or log them.
-Close returns to the page. Automatic opening detects controls in the main document and open shadow roots;
-other focused controls can use the manual button.
+The keyboard UI is maintained separately in
+[RemoteWebViewKeyboard](https://github.com/wjcloudy/RemoteWebViewKeyboard).
+It is loaded with upstream's `INJECT_JS_URL`, with bounded JSON configuration
+and an optional SHA-256 check. See `README.md` for installation and migration
+from the former `TOUCH_KEYBOARD_*` settings. There is no bundled keyboard UI.
 
-The keyboard is drawn by Chromium and streamed with the page. Existing clients
-send their normal touch events: no display firmware change or helper container
-is needed. The asset is bundled in the image and loaded locally before every
-new device page navigates. It is now opt-in: set `TOUCH_KEYBOARD_ENABLED=true` to enable it. The earlier
-`BUILTIN_KEYBOARD` flag is replaced by the documented `TOUCH_KEYBOARD_*` settings
-in README.md. Layout, theme, position and automatic opening can also be selected
-per display using URL parameters. The upstream
-`INJECT_JS_URL` hook remains available independently for other extensions.
-
-The fork also retains navigation and touch requests received while a device's
-browser session is being prepared. The WebSocket listener starts after browser
-bootstrap, and input is handled in order with a bounded queue. This prevents a
-display from reconnecting to a blank page after its initial URL was missed.
-
-The regular `dockerfile` builds and tests from source. `dockerfile.keyboard`
-packages the changed compiled modules on the pinned upstream runtime, keeping
-browser and dependency versions unchanged. Run `npm ci`, `npm run test:run`,
-`npm run build` and `npm run test:keyboard` before using this variant. Compiled
-modules in `dist/` are tracked, matching upstream's repository structure.
-
-Keep `/pw-data` mounted to persistent storage to retain the browser profile.
-This does not share the login session from your phone or computer: log in on
-the display's own streamed browser page. No Home Assistant credentials belong
-in display YAML, this repository or image environment variables.
-
-The generalized implementation is maintained separately on
-`codex/upstream-touch-keyboard`, based directly on current upstream main. That
-branch excludes fork-specific image publishing and the separate startup fix.
-It has not been submitted upstream pending physical-display tests.
-
-## Fork image updates
+The regular `dockerfile` builds from source. `dockerfile.keyboard` retains its
+name for the existing image channel and layers the changed compiled server
+modules onto the pinned upstream runtime used for validation. Run `npm ci`,
+`npm run build`, `npm run test:run` and `npm run test:browser`; compiled `dist`
+modules are committed. The image startup test fetches an external synthetic
+script and exercises configuration and native input on the actual runtime.
 
 The fork publishes an immutable `keyboard-<commit>` image and a rolling
 `keyboard-test` tag in `ghcr.io/wjcloudy/remote-webview-server`. The latter

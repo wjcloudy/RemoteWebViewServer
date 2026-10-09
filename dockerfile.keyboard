@@ -1,9 +1,8 @@
-# Homestead keyboard build on the exact upstream runtime used for validation.
+# Homestead native-input build on the exact upstream runtime used for validation.
 # No upstream packages or browser runtime are replaced by this variant.
 FROM docker.io/strangev/remote-webview-server@sha256:d9834ac4add11fa23af4542bd0ad2f7c7ff3eb9842354361222911b046d546eb
 WORKDIR /app
-COPY dist/touchKeyboard.js dist/touchKeyboardConfig.js dist/config.js dist/deviceManager.js dist/deviceConnection.js dist/index.js ./dist/
-COPY keyboard ./keyboard
+COPY dist/nativeInput.js dist/scriptLoader.js dist/config.js dist/deviceManager.js dist/deviceConnection.js dist/index.js ./dist/
 COPY LICENSE ./LICENSE
 LABEL org.opencontainers.image.source="https://github.com/wjcloudy/RemoteWebViewServer" \
       org.opencontainers.image.licenses="MIT"

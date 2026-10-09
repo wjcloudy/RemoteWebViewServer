@@ -1,7 +1,5 @@
-import { readFile } from 'node:fs/promises';
-export const KEYBOARD_BINDING = '__rwvTouchKeyboardInput';
-let asset;
-export function parseKeyboardInput(payload) {
+export const NATIVE_INPUT_BINDING = '__rwvNativeInput';
+export function parseNativeInput(payload) {
     if (typeof payload !== 'string' || payload.length > 128)
         return;
     try {
@@ -18,16 +16,7 @@ export function parseKeyboardInput(payload) {
     }
     catch { /* Ignore malformed page messages without logging typed data. */ }
 }
-export async function getTouchKeyboardScript(config) {
-    if (!config?.enabled)
-        return;
-    asset ?? (asset = readFile(new URL('../keyboard/keyboard.js', import.meta.url), 'utf8'));
-    return `${await asset}\n(${JSON.stringify(config)});`;
-}
-export async function installTouchKeyboard(session, config) {
-    const source = await getTouchKeyboardScript(config);
-    if (!source)
-        return;
+export async function installNativeInput(session) {
     const { frameTree } = await session.send('Page.getFrameTree');
     const mainFrame = frameTree.frame.id;
     const contexts = new Set();
@@ -39,9 +28,9 @@ export async function installTouchKeyboard(session, config) {
     session.on('Runtime.executionContextsCleared', () => contexts.clear());
     let pending = 0, queue = Promise.resolve();
     session.on('Runtime.bindingCalled', event => {
-        if (event.name !== KEYBOARD_BINDING || !contexts.has(event.executionContextId) || pending >= 128)
+        if (event.name !== NATIVE_INPUT_BINDING || !contexts.has(event.executionContextId) || pending >= 128)
             return;
-        const input = parseKeyboardInput(event.payload);
+        const input = parseNativeInput(event.payload);
         if (!input)
             return;
         pending++;
@@ -70,6 +59,5 @@ export async function installTouchKeyboard(session, config) {
         }).finally(() => { pending--; });
     });
     await session.send('Runtime.enable');
-    await session.send('Runtime.addBinding', { name: KEYBOARD_BINDING });
-    await session.send('Page.addScriptToEvaluateOnNewDocument', { source });
+    await session.send('Runtime.addBinding', { name: NATIVE_INPUT_BINDING });
 }
